@@ -22,7 +22,7 @@ MODEL_W=$((TERM_COLS - IFACE_W - PCI_W - DRIVER_W - IP_W - 13))
 # Help
 # -------------------------
 usage() {
-cat <<'EOF'
+    cat <<'EOF'
 Usage: net-pci-map [options]
 
 Options:
@@ -60,8 +60,8 @@ done
 get_ips() {
     local iface="$1"
     ip -o addr show "$iface" scope global \
-      | awk '{print $4}'
-}
+        | awk '{print $4}'
+    }
 
 # -------------------------
 # Collect
@@ -100,29 +100,28 @@ output_human() {
         "$(printf '%*s' $DRIVER_W | tr ' ' '-')"
 
     collect | while IFS='|' read -r iface pci model driver ips; do
-        # IP 拆行
-        IFS=',' read -ra ip_arr <<< "$ips"
-        (( ${#ip_arr[@]} == 0 )) && ip_arr=("-")
+    IFS=',' read -ra ip_arr <<< "$ips"
+    [[ ${#ip_arr[@]} -eq 0 ]] && ip_arr=("-")
 
-        # Model 拆行
-        if (( WRAP )); then
-            mapfile -t model_arr < <(echo "$model" | fold -s -w "$MODEL_W")
-        else
-            model_arr=("$model")
-        fi
+    if (( WRAP )); then
+        mapfile -t model_arr < <(echo "$model" | fold -s -w "$MODEL_W")
+    else
+        model_arr=("$model")
+    fi
 
-        max_lines=${#model_arr[@]}
-        (( ${#ip_arr[@]} > max_lines )) && max_lines=${#ip_arr[@]}
+    max_lines=${#model_arr[@]}
+    (( ${#ip_arr[@]} > max_lines )) && max_lines=${#ip_arr[@]}
 
-        for ((i=0; i<max_lines; i++)); do
+    for ((i=0; i<max_lines; i++)); do
+        if (( i == 0 )); then
             printf "%-${IFACE_W}s | %-${PCI_W}s | %-${MODEL_W}s | %-${IP_W}s | %-${DRIVER_W}s\n" \
-                "${i==0?iface:""}" \
-                "${i==0?pci:""}" \
-                "${model_arr[i]:-}" \
-                "${ip_arr[i]:-}" \
-                "${i==0?driver:""}"
-        done
+                "$iface" "$pci" "${model_arr[i]:-}" "${ip_arr[i]:-}" "$driver"
+                        else
+                            printf "%-${IFACE_W}s | %-${PCI_W}s | %-${MODEL_W}s | %-${IP_W}s | %-${DRIVER_W}s\n" \
+                                "" "" "${model_arr[i]:-}" "${ip_arr[i]:-}" ""
+        fi
     done
+done
 }
 
 # -------------------------
@@ -140,19 +139,19 @@ output_json() {
     echo "["
     first=1
     collect | while IFS='|' read -r iface pci model driver ips; do
-        (( first )) || echo ","
-        first=0
-        cat <<EOF
+    (( first )) || echo ","
+    first=0
+    cat <<EOF
   {
     "interface": "$iface",
     "pci_addr": "$pci",
     "model": "$model",
     "driver": "$driver",
     "ip": [$(printf '"%s",' ${ips//,/ } | sed 's/,$//')]
-  }
+}
 EOF
-    done
-    echo "]"
+done
+echo "]"
 }
 
 # -------------------------
